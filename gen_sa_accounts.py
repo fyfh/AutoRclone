@@ -1,3 +1,7 @@
+from __future__ import print_function
+
+import sys
+import errno
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -8,7 +12,7 @@ from random import choice
 from json import loads
 from time import sleep
 from glob import glob
-import os,pickle 
+import os, pickle
 
 SCOPES = ['https://www.googleapis.com/auth/drive','https://www.googleapis.com/auth/cloud-platform','https://www.googleapis.com/auth/iam']
 project_create_ops = []
@@ -191,16 +195,23 @@ def serviceaccountfactory(
     if list_sas:
         return _list_sas(iam,list_sas)
     if create_projects:
+        print("creat projects: {}".format(create_projects))
         if create_projects > 0:
             current_count = len(_get_projects(cloud))
-            if current_count + create_projects < max_projects:
+            if current_count + create_projects <= max_projects:
                 print('Creating %d projects' % (create_projects))
                 nprjs = _create_projects(cloud, create_projects)
                 selected_projects = nprjs
             else:
-                print('%d projects already exist!' % current_count)
+                sys.exit('No, you cannot create %d new project (s).\n'
+                      'Please reduce value of --quick-setup.\n'
+                      'Remember that you can totally create %d projects (%d already).\n'
+                      'Please do not delete existing projects unless you know what you are doing' % (create_projects, max_projects, current_count))
         else:
-            print('Please specify a number larger than 0.')
+            print('Will overwrite all service accounts in existing projects.\n'
+                  'So make sure you have some projects already.')
+            input("Press Enter to continue...")
+
     if enable_services:
         ste = []
         ste.append(enable_services)
@@ -223,8 +234,11 @@ def serviceaccountfactory(
     if download_keys:
         try:
             os.mkdir(path)
-        except FileExistsError:
-            pass
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                raise
         std = []
         std.append(download_keys)
         if download_keys == '~':
@@ -263,7 +277,9 @@ if __name__ == '__main__':
     # If credentials file is invalid, search for one.
     if not os.path.exists(args.credentials):
         options = glob('*.json')
-        print('No credentials found at %s' % args.credentials)
+        print('No credentials found at %s. Please enable the Drive API in:\n'
+              'https://developers.google.com/drive/api/v3/quickstart/python\n'
+              'and save the json file as credentials.json' % args.credentials)
         if len(options) < 1:
             exit(-1)
         else:
